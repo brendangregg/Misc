@@ -1,6 +1,6 @@
 #!/bin/ksh
 #
-# kernel_diagreport_to_text.ksh 
+# kernel_diagreport2text.ksh 
 #
 # Prints the stack trace from an OS X kernel panic diagnostic report, along
 # with as much symbol translation as your mach_kernel version provides.
