@@ -69,9 +69,9 @@ while (( $# != 0 )); do
 
 	# Find kernel extension ranges
 	i=0
-	set -A name
-	set -A start
-	set -A end
+	unset name
+	unset start
+	unset end
 	awk 'ext == 1 && /0x.*->.*0x/ { print $0 }
 		/Kernel Extensions in backtrace/ { ext = 1 }
 		/^$/ { ext = 0 }
@@ -96,12 +96,14 @@ while (( $# != 0 )); do
 		# do extensions
 		if [[ $line =~ 0x* ]]; then
 			i=0
-			while (( i++ < ${#name[@]} )); do
+			while (( i <= ${#name[@]} )); do
+				if [[ "${start[i]}" == "" ]]; then break; fi
 				# assuming fixed width addresses, use string comparison:
 				if [[ $line > ${start[$i]} && $line < ${end[$i]} ]]; then
 					line="$line (in ${name[$i]})"
 					break
 				fi
+				(( i++ ))
 			done
 		fi
 		print "	$line"
