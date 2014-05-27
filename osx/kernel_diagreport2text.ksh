@@ -67,6 +67,9 @@ while (( $# != 0 )); do
 		continue
 	fi
 
+	# Print panic line
+	grep '^panic' $file
+
 	# Find kernel extension ranges
 	i=0
 	unset name
