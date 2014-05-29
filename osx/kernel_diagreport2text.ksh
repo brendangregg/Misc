@@ -113,7 +113,7 @@ while (( $# != 0 )); do
 	done
 
 	# Print other key details
-	awk '/^BSD process name/ { print "BSD process name:", $NF }
+	awk '/^BSD process name/ { gsub(/ corresponding to current thread/, ""); print $0 }
 		ver == 1 { print "Mac OS version:", $0; ver = 0 }
 		/^Mac OS version/ { ver = 1 }
 	' < $file
