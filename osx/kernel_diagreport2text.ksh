@@ -14,6 +14,13 @@
 # to decorate remaining untranslated symbols with kernel extension names,
 # if the ranges match.
 #
+# WARNING: This can only translate kernel diag reports that occurred for your
+# current kernel. If you run this on old kernel diag reports, and you have
+# since upgraded your kernel, it will translate symbols INCORRECTLY. See the
+# "kernel" variable for the path to the kernel it uses for translation.
+# If you must translate old diag reports, find a matching mach_kernel file
+# and change the kernel variable to point to it.
+#
 # Copyright 2014 Brendan Gregg.  All rights reserved.
 #
 # CDDL HEADER START
