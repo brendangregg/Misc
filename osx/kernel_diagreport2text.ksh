@@ -14,12 +14,11 @@
 # to decorate remaining untranslated symbols with kernel extension names,
 # if the ranges match.
 #
-# WARNING: This can only translate kernel diag reports that occurred for your
-# current kernel. If you run this on old kernel diag reports, and you have
-# since upgraded your kernel, it will translate symbols INCORRECTLY. See the
-# "kernel" variable for the path to the kernel it uses for translation.
-# If you must translate old diag reports, find a matching mach_kernel file
-# and change the kernel variable to point to it.
+# This uses your current kernel, /mach_kernel, to translate symbols. If you run
+# this on old kernel diag reports from a different kernel version, it will print
+# a "kernel version mismatch" warning, as the translation may be incorrect. If
+# you must translate old diag reports, find a matching mach_kernel file and
+# change the "kernel=" line to point to it.
 #
 # Copyright 2014 Brendan Gregg.  All rights reserved.
 #
@@ -51,7 +50,7 @@ if (( $# == 0 )); then
 fi
 
 if [[ ! -x /usr/bin/atos ]]; then
-	print "ERROR: Couldn't find, and need, /usr/bin/atos. Is this part of Xcode? Quitting..."
+	print -u2 "ERROR: Couldn't find, and need, /usr/bin/atos. Is this part of Xcode? Quitting..."
 	exit
 fi
 
@@ -77,16 +76,28 @@ while (( $# != 0 )); do
 	# Print panic line
 	grep '^panic' $file
 
+	# Check kernel version match (uname -v string)
+	kernel_ver=$(strings -a $kernel | grep 'Darwin Kernel Version')
+	panic_ver=$(grep 'Darwin Kernel Version' $file)
+	warn=""
+	if [[ "$kernel_ver" != "$panic_ver" ]]; then
+		print "WARNING: kernel version mismatch (see script):"
+		printf "%14s: %s\n" "$kernel" "$kernel_ver"
+		printf "%14s: %s\n" "panic file" "$panic_ver"
+		warn=" (may be incorrect due to mismatch)"
+	fi
+
 	# Find kernel extension ranges
 	i=0
-	unset name
-	unset start
-	unset end
-	awk 'ext == 1 && /0x.*->.*0x/ { print $0 }
+	unset name start end
+	awk 'ext == 1 && /0x.*->.*0x/ {
+		    gsub(/\[.*\]/, ""); gsub(/@/, " "); gsub(/->/, " ")
+		    print $0
+		}
 		/Kernel Extensions in backtrace/ { ext = 1 }
 		/^$/ { ext = 0 }
-	' < $file | sed 's/\[.*\]//;s/@/ /;s/->/ /' | while read n s e; do
-		# the previous sed line converts this:
+	' < $file | while read n s e; do
+		# the awk gsub's convert this line:
 		#   com.apple.driver.AppleUSBHub(666.4)[CD9B71FF-2FDD-3BC4-9C39-5E066F66D158]@0xffffff7f84ed2000->0xffffff7f84ee9fff
 		# into this:
 		#   com.apple.driver.AppleUSBHub(666.4) 0xffffff7f84ed2000 0xffffff7f84ee9fff
@@ -98,7 +109,7 @@ while (( $# != 0 )); do
 	done
 
 	# Print and translate stack
-	print "Stack:"
+	print "Stack$warn:"
 	awk 'backtrace == 1 && /^[^ ]/ { print $3 }
 		/Backtrace.*Return Address/ { backtrace = 1 }
 		/^$/ { backtrace = 0 }
@@ -107,7 +118,7 @@ while (( $# != 0 )); do
 		if [[ $line =~ 0x* ]]; then
 			i=0
 			while (( i <= ${#name[@]} )); do
-				if [[ "${start[i]}" == "" ]]; then break; fi
+				[[ "${start[i]}" == "" ]] && break
 				# assuming fixed width addresses, use string comparison:
 				if [[ $line > ${start[$i]} && $line < ${end[$i]} ]]; then
 					line="$line (in ${name[$i]})"
