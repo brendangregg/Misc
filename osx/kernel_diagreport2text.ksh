@@ -7,6 +7,9 @@
 # By default, this is some, but with the Kernel Debug Kit, it should be a lot
 # more. This is not an official Apple tool. 
 #
+# USAGE:
+# 	./kernel_diagreport2text.ksh [-f kernel_file] Kernel_report.panic [...]
+#
 # Note: The Kernel Debug Kit currently requires an Apple ID to download. It
 # would be great if this was not necessary.
 #
@@ -15,10 +18,9 @@
 # if the ranges match.
 #
 # This uses your current kernel, /mach_kernel, to translate symbols. If you run
-# this on old kernel diag reports from a different kernel version, it will print
-# a "kernel version mismatch" warning, as the translation may be incorrect. If
-# you must translate old diag reports, find a matching mach_kernel file and
-# change the "kernel=" line to point to it.
+# this on kernel diag reports from a different kernel version, it will print
+# a "kernel version mismatch" warning, as the translation may be incorrect. Find
+# a matching mach_kernel file and use the -f option to point to it.
 #
 # Copyright 2014 Brendan Gregg.  All rights reserved.
 #
@@ -43,15 +45,26 @@
 
 kernel=/mach_kernel
 
-if (( $# == 0 )); then
-	print "USAGE: $0 Kernel_diag_report.panic [...]"
+function usage {
+	print "USAGE: $0 [-f kernel_file] Kernel_diag_report.panic [...]"
 	print "   eg, $0 /Library/Logs/DiagnosticReports/Kernel_2014-05-26-124827_bgregg.panic"
 	exit
+}
+(( $# == 0 )) && usage
+[[ $1 == "-h" || $1 == "--help" ]] && usage
+
+if [[ $1 == "-f" ]]; then
+	kernel=$2
+	if [[ ! -e $kernel ]]; then
+		print -u2 "ERROR: Kernel $kernel not found. Quitting."
+		exit 2
+	fi
+	shift 2
 fi
 
 if [[ ! -x /usr/bin/atos ]]; then
 	print -u2 "ERROR: Couldn't find, and need, /usr/bin/atos. Is this part of Xcode? Quitting..."
-	exit
+	exit 2
 fi
 
 while (( $# != 0 )); do
@@ -81,7 +94,7 @@ while (( $# != 0 )); do
 	panic_ver=$(grep 'Darwin Kernel Version' $file)
 	warn=""
 	if [[ "$kernel_ver" != "$panic_ver" ]]; then
-		print "WARNING: kernel version mismatch (see script):"
+		print "WARNING: kernel version mismatch (use -f):"
 		printf "%14s: %s\n" "$kernel" "$kernel_ver"
 		printf "%14s: %s\n" "panic file" "$panic_ver"
 		warn=" (may be incorrect due to mismatch)"
