@@ -1,0 +1,158 @@
+--- openjdk8clean/hotspot/src/cpu/x86/vm/x86_64.ad	2014-03-04 02:52:11.000000000 +0000
++++ openjdk8/hotspot/src/cpu/x86/vm/x86_64.ad	2014-11-08 01:10:49.686044933 +0000
+@@ -166,10 +166,9 @@
+ // 3) reg_class stack_slots( /* one chunk of stack-based "registers" */ )
+ //
+ 
+-// Class for all pointer registers (including RSP)
++// Class for all pointer registers (including RSP, excluding RBP)
+ reg_class any_reg(RAX, RAX_H,
+                   RDX, RDX_H,
+-                  RBP, RBP_H,
+                   RDI, RDI_H,
+                   RSI, RSI_H,
+                   RCX, RCX_H,
+@@ -184,10 +183,9 @@
+                   R14, R14_H,
+                   R15, R15_H);
+ 
+-// Class for all pointer registers except RSP
++// Class for all pointer registers except RSP and RBP
+ reg_class ptr_reg(RAX, RAX_H,
+                   RDX, RDX_H,
+-                  RBP, RBP_H,
+                   RDI, RDI_H,
+                   RSI, RSI_H,
+                   RCX, RCX_H,
+@@ -199,9 +197,8 @@
+                   R13, R13_H,
+                   R14, R14_H);
+ 
+-// Class for all pointer registers except RAX and RSP
++// Class for all pointer registers except RAX, RSP and RBP
+ reg_class ptr_no_rax_reg(RDX, RDX_H,
+-                         RBP, RBP_H,
+                          RDI, RDI_H,
+                          RSI, RSI_H,
+                          RCX, RCX_H,
+@@ -226,9 +223,8 @@
+                          R13, R13_H,
+                          R14, R14_H);
+ 
+-// Class for all pointer registers except RAX, RBX and RSP
++// Class for all pointer registers except RAX, RBX, RSP and RBP
+ reg_class ptr_no_rax_rbx_reg(RDX, RDX_H,
+-                             RBP, RBP_H,
+                              RDI, RDI_H,
+                              RSI, RSI_H,
+                              RCX, RCX_H,
+@@ -260,10 +256,9 @@
+ // Singleton class for TLS pointer
+ reg_class ptr_r15_reg(R15, R15_H);
+ 
+-// Class for all long registers (except RSP)
++// Class for all long registers (except RSP and RBP)
+ reg_class long_reg(RAX, RAX_H,
+                    RDX, RDX_H,
+-                   RBP, RBP_H,
+                    RDI, RDI_H,
+                    RSI, RSI_H,
+                    RCX, RCX_H,
+@@ -275,9 +270,8 @@
+                    R13, R13_H,
+                    R14, R14_H);
+ 
+-// Class for all long registers except RAX, RDX (and RSP)
+-reg_class long_no_rax_rdx_reg(RBP, RBP_H,
+-                              RDI, RDI_H,
++// Class for all long registers except RAX, RDX (and RSP, RBP)
++reg_class long_no_rax_rdx_reg(RDI, RDI_H,
+                               RSI, RSI_H,
+                               RCX, RCX_H,
+                               RBX, RBX_H,
+@@ -288,9 +282,8 @@
+                               R13, R13_H,
+                               R14, R14_H);
+ 
+-// Class for all long registers except RCX (and RSP)
+-reg_class long_no_rcx_reg(RBP, RBP_H,
+-                          RDI, RDI_H,
++// Class for all long registers except RCX (and RSP, RBP)
++reg_class long_no_rcx_reg(RDI, RDI_H,
+                           RSI, RSI_H,
+                           RAX, RAX_H,
+                           RDX, RDX_H,
+@@ -302,9 +295,8 @@
+                           R13, R13_H,
+                           R14, R14_H);
+ 
+-// Class for all long registers except RAX (and RSP)
+-reg_class long_no_rax_reg(RBP, RBP_H,
+-                          RDX, RDX_H,
++// Class for all long registers except RAX (and RSP, RBP)
++reg_class long_no_rax_reg(RDX, RDX_H,
+                           RDI, RDI_H,
+                           RSI, RSI_H,
+                           RCX, RCX_H,
+@@ -325,10 +317,9 @@
+ // Singleton class for RDX long register
+ reg_class long_rdx_reg(RDX, RDX_H);
+ 
+-// Class for all int registers (except RSP)
++// Class for all int registers (except RSP and RBP)
+ reg_class int_reg(RAX,
+                   RDX,
+-                  RBP,
+                   RDI,
+                   RSI,
+                   RCX,
+@@ -340,10 +331,9 @@
+                   R13,
+                   R14);
+ 
+-// Class for all int registers except RCX (and RSP)
++// Class for all int registers except RCX (and RSP, RBP)
+ reg_class int_no_rcx_reg(RAX,
+                          RDX,
+-                         RBP,
+                          RDI,
+                          RSI,
+                          RBX,
+@@ -355,8 +345,7 @@
+                          R14);
+ 
+ // Class for all int registers except RAX, RDX (and RSP)
+-reg_class int_no_rax_rdx_reg(RBP,
+-                             RDI,
++reg_class int_no_rax_rdx_reg(RDI,
+                              RSI,
+                              RCX,
+                              RBX,
+@@ -718,6 +707,7 @@
+     st->print("# stack bang");
+     st->print("\n\t");
+     st->print("pushq   rbp\t# Save rbp");
++    // BDG consider: st->print("movq    rbp, rsp\t# ");
+     if (framesize) {
+       st->print("\n\t");
+       st->print("subq    rsp, #%d\t# Create frame",framesize);
+--- openjdk8clean/hotspot/src/cpu/x86/vm/macroAssembler_x86.cpp	2014-03-04 02:52:11.000000000 +0000
++++ openjdk8/hotspot/src/cpu/x86/vm/macroAssembler_x86.cpp	2014-11-07 23:57:11.589593723 +0000
+@@ -5236,6 +5236,7 @@
+     // We always push rbp, so that on return to interpreter rbp, will be
+     // restored correctly and we can correct the stack.
+     push(rbp);
++    mov(rbp, rsp);
+     // Remove word for ebp
+     framesize -= wordSize;
+ 
+--- openjdk8clean/hotspot/src/cpu/x86/vm/c1_MacroAssembler_x86.cpp	2014-03-04 02:52:10.000000000 +0000
++++ openjdk8/hotspot/src/cpu/x86/vm/c1_MacroAssembler_x86.cpp	2014-11-07 23:57:21.933257882 +0000
+@@ -358,6 +358,7 @@
+   generate_stack_overflow_check(frame_size_in_bytes);
+ 
+   push(rbp);
++  mov(rbp, rsp);
+ #ifdef TIERED
+   // c2 leaves fpu stack dirty. Clean it on entry
+   if (UseSSE < 2 ) {
