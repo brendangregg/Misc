@@ -19,7 +19,7 @@
 #
 # 13-Feb-2015	Brendan Gregg	Created this.
 
-JAVA_HOME=/usr/lib/jvm/nflx-openjdk8
+JAVA_HOME=/usr/lib/jvm/java-8-oracle
 AGENT_HOME=/usr/lib/jvm/perf-map-agent	# from https://github.com/jrudolph/perf-map-agent
 
 if [[ "$USER" != root ]]; then
@@ -41,7 +41,7 @@ echo "Fetching maps for all java processes..."
 for pid in $(pgrep -x java); do
 	mapfile=/tmp/perf-$pid.map
 	[[ -e $mapfile ]] && rm $mapfile
-	cmd="cd $AGENT_HOME; $JAVA_HOME/bin/java -XX:PermSize=16m -XX:MaxPermSize=64m -Xms32m -Xmx128m -cp attach-main.jar:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
+	cmd="cd $AGENT_HOME/out; $JAVA_HOME/bin/java -Xms32m -Xmx128m -cp attach-main.jar:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
 	user=$(ps -ho user -p $pid)
 	if [[ "$user" != root ]]; then
 		# make $user the username if it is a UID:
