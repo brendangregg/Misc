@@ -37,11 +37,18 @@ if [[ ! -x $AGENT_HOME ]]; then
 	exit
 fi
 
+if [[ -e $AGENT_HOME/out/attach-main.jar && -e $AGENT_HOME/out/attach-main.jar ]]; then
+	AGENT_HOME=$AGENT_HOME/out
+elif [[ ! -e $AGENT_HOME/attach-main.jar && ! -e $AGENT_HOME/attach-main.jar ]]; then
+	echo "ERROR: Missing perf-map-agent files in $AGENT_HOME. Check installation."
+	exit
+fi
+
 echo "Fetching maps for all java processes..."
 for pid in $(pgrep -x java); do
 	mapfile=/tmp/perf-$pid.map
 	[[ -e $mapfile ]] && rm $mapfile
-	cmd="cd $AGENT_HOME/out; $JAVA_HOME/bin/java -Xms32m -Xmx128m -cp attach-main.jar:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
+	cmd="cd $AGENT_HOME; $JAVA_HOME/bin/java -Xms32m -Xmx128m -cp attach-main.jar:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
 	user=$(ps -ho user -p $pid)
 	if [[ "$user" != root ]]; then
 		# make $user the username if it is a UID:
