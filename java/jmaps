@@ -40,15 +40,15 @@ fi
 # figure out where the agent files are:
 AGENT_OUT=""
 AGENT_JAR=""
-if [[ -e $AGENT_HOME/attach-main.jar ]]; then
-	AGENT_JAR=$AGENT_HOME/attach-main.jar
-elif [[ -e $AGENT_HOME/out/attach-main.jar ]]; then
+if [[ -e $AGENT_HOME/out/attach-main.jar ]]; then
 	AGENT_JAR=$AGENT_HOME/out/attach-main.jar
+elif [[ -e $AGENT_HOME/attach-main.jar ]]; then
+	AGENT_JAR=$AGENT_HOME/attach-main.jar
 fi
-if [[ -e $AGENT_HOME/libperfmap.so ]]; then
-	AGENT_OUT=$AGENT_HOME
-elif [[ -e $AGENT_HOME/out/libperfmap.so ]]; then
+if [[ -e $AGENT_HOME/out/libperfmap.so ]]; then
 	AGENT_OUT=$AGENT_HOME/out
+elif [[ -e $AGENT_HOME/libperfmap.so ]]; then
+	AGENT_OUT=$AGENT_HOME
 fi
 if [[ "$AGENT_OUT" == "" || "$AGENT_JAR" == "" ]]; then
 	echo "ERROR: Missing perf-map-agent files in $AGENT_HOME. Check installation."
