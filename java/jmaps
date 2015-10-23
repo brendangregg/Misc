@@ -37,9 +37,20 @@ if [[ ! -x $AGENT_HOME ]]; then
 	exit
 fi
 
-if [[ -e $AGENT_HOME/out/attach-main.jar && -e $AGENT_HOME/out/attach-main.jar ]]; then
-	AGENT_HOME=$AGENT_HOME/out
-elif [[ ! -e $AGENT_HOME/attach-main.jar && ! -e $AGENT_HOME/attach-main.jar ]]; then
+# figure out where the agent files are:
+AGENT_OUT=""
+AGENT_JAR=""
+if [[ -e $AGENT_HOME/attach-main.jar ]]; then
+	AGENT_JAR=$AGENT_HOME/attach-main.jar
+elif [[ -e $AGENT_HOME/out/attach-main.jar ]]; then
+	AGENT_JAR=$AGENT_HOME/out/attach-main.jar
+fi
+if [[ -e $AGENT_HOME/libperfmap.so ]]; then
+	AGENT_OUT=$AGENT_HOME
+elif [[ -e $AGENT_HOME/out/libperfmap.so ]]; then
+	AGENT_OUT=$AGENT_HOME/out
+fi
+if [[ "$AGENT_OUT" == "" || "$AGENT_JAR" == "" ]]; then
 	echo "ERROR: Missing perf-map-agent files in $AGENT_HOME. Check installation."
 	exit
 fi
@@ -48,8 +59,9 @@ echo "Fetching maps for all java processes..."
 for pid in $(pgrep -x java); do
 	mapfile=/tmp/perf-$pid.map
 	[[ -e $mapfile ]] && rm $mapfile
-	cmd="cd $AGENT_HOME; $JAVA_HOME/bin/java -Xms32m -Xmx128m -cp attach-main.jar:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
-	user=$(ps -ho user -p $pid)
+	cmd="cd $AGENT_OUT; $JAVA_HOME/bin/java -Xms32m -Xmx128m -cp $AGENT_JAR:$JAVA_HOME/lib/tools.jar net.virtualvoid.perf.AttachOnce $pid"
+echo $cmd
+	user=$(ps ho user -p $pid)
 	if [[ "$user" != root ]]; then
 		# make $user the username if it is a UID:
 		if [[ "$user" == [0-9]* ]]; then user=$(awk -F: '$3 == '$user' { print $1 }' /etc/passwd); fi
