@@ -1,0 +1,150 @@
+diff -ur xen-4.6.0-clean/docs/misc/xen-command-line.markdown xen-4.6.0-brendan/docs/misc/xen-command-line.markdown
+--- xen-4.6.0-clean/docs/misc/xen-command-line.markdown	2015-10-05 07:33:39.000000000 -0700
++++ xen-4.6.0-brendan/docs/misc/xen-command-line.markdown	2015-11-20 15:29:05.663781176 -0800
+@@ -1444,7 +1444,7 @@
+ flushes on VM entry and exit, increasing performance.
+ 
+ ### vpmu
+-> `= ( bts )`
++> `= ( <boolean> | bts | ipc | arch )`
+ 
+ > Default: `off`
+ 
+@@ -1460,6 +1460,15 @@
+ If 'vpmu=bts' is specified the virtualisation of the Branch Trace Store (BTS)
+ feature is switched on on Intel processors supporting this feature.
+ 
++vpmu=ipc enables performance monitoring, but restricts the counters to the
++most minimum set possible: instructions, cycles, and reference cycles. These
++can be used to calculate instructions per cycle (IPC).
++
++vpmu=arch enables performance monitoring, but restricts the counters to the
++pre-defined architectural events only. These are exposed by cpuid, and listed
++in Table 18-1 from the Intel 64 and IA-32 Architectures Software Developer's
++Manual, Volume 3B, System Programming Guide, Part 2.
++
+ Note that if **watchdog** option is also specified vpmu will be turned off.
+ 
+ *Warning:*
+diff -ur xen-4.6.0-clean/xen/arch/x86/cpu/vpmu.c xen-4.6.0-brendan/xen/arch/x86/cpu/vpmu.c
+--- xen-4.6.0-clean/xen/arch/x86/cpu/vpmu.c	2015-10-05 07:33:39.000000000 -0700
++++ xen-4.6.0-brendan/xen/arch/x86/cpu/vpmu.c	2015-11-20 15:29:50.847781176 -0800
+@@ -43,9 +43,11 @@
+ CHECK_pmu_params;
+ 
+ /*
+- * "vpmu" :     vpmu generally enabled
+- * "vpmu=off" : vpmu generally disabled
+- * "vpmu=bts" : vpmu enabled and Intel BTS feature switched on.
++ * "vpmu" :     vpmu generally enabled (all counters)
++ * "vpmu=off"  : vpmu generally disabled
++ * "vpmu=bts"  : vpmu enabled and Intel BTS feature switched on.
++ * "vpmu=ipc"  : vpmu enabled for IPC counters only (most restrictive)
++ * "vpmu=arch" : vpmu enabled for predef arch counters only (restrictive)
+  */
+ static unsigned int __read_mostly opt_vpmu_enabled;
+ unsigned int __read_mostly vpmu_mode = XENPMU_MODE_OFF;
+@@ -67,6 +69,10 @@
+     default:
+         if ( !strcmp(s, "bts") )
+             vpmu_features |= XENPMU_FEATURE_INTEL_BTS;
++        else if ( !strcmp(s, "ipc") )
++            vpmu_features |= XENPMU_FEATURE_IPC_ONLY;
++        else if ( !strcmp(s, "arch") )
++            vpmu_features |= XENPMU_FEATURE_ARCH_ONLY;
+         else if ( *s )
+         {
+             printk("VPMU: unknown flag: %s - vpmu disabled!\n", s);
+diff -ur xen-4.6.0-clean/xen/arch/x86/cpu/vpmu_intel.c xen-4.6.0-brendan/xen/arch/x86/cpu/vpmu_intel.c
+--- xen-4.6.0-clean/xen/arch/x86/cpu/vpmu_intel.c	2015-10-05 07:33:39.000000000 -0700
++++ xen-4.6.0-brendan/xen/arch/x86/cpu/vpmu_intel.c	2015-11-20 15:29:42.571781176 -0800
+@@ -166,10 +166,10 @@
+  */
+ static int core2_get_fixed_pmc_count(void)
+ {
+-    u32 eax;
++    u32 edx;
+ 
+-    eax = cpuid_eax(0xa);
+-    return MASK_EXTR(eax, PMU_FIXED_NR_MASK);
++    edx = cpuid_edx(0xa);
++    return MASK_EXTR(edx, PMU_FIXED_NR_MASK);
+ }
+ 
+ /* edx bits 5-12: Bit width of fixed-function performance counters  */
+@@ -652,12 +652,52 @@
+         tmp = msr - MSR_P6_EVNTSEL(0);
+         if ( tmp >= 0 && tmp < arch_pmc_cnt )
+         {
++            int umaskevent, blocked = 0;
+             struct xen_pmu_cntr_pair *xen_pmu_cntr_pair =
+                 vpmu_reg_pointer(core2_vpmu_cxt, arch_counters);
+ 
+             if ( msr_content & ARCH_CTRL_MASK )
+                 return -EINVAL;
+ 
++            /* PMC filters */
++            umaskevent = msr_content & MSR_IA32_CMT_EVTSEL_UE_MASK;
++            if ( vpmu_features & XENPMU_FEATURE_IPC_ONLY ||
++                 vpmu_features & XENPMU_FEATURE_ARCH_ONLY )
++            {
++                blocked = 1;
++                switch ( umaskevent )
++                {
++                /*
++                 * See Table 18-1 from the Intel 64 and IA-32 Architectures Software
++                 * Developer's Manual, Volume 3B, System Programming Guide, Part 2.
++                 */
++                case 0x003c:	/* unhalted core cycles */
++                case 0x013c:	/* unhalted ref cycles */
++                case 0x00c0:	/* instruction retired */
++                    blocked = 0;
++                default:
++                    break;
++                }
++            }
++
++            if ( vpmu_features & XENPMU_FEATURE_ARCH_ONLY )
++            {
++                /* additional counters beyond IPC only; blocked already set */
++                switch ( umaskevent )
++                {
++                case 0x4f2e:	/* LLC reference */
++                case 0x412e:	/* LLC misses */
++                case 0x00c4:	/* branch instruction retired */
++                case 0x00c5:	/* branch */
++                    blocked = 0;
++                default:
++                    break;
++               }
++            }
++
++            if ( blocked )
++                return -EINVAL;
++
+             if ( has_hvm_container_vcpu(v) )
+                 vmx_read_guest_msr(MSR_CORE_PERF_GLOBAL_CTRL,
+                                    &core2_vpmu_cxt->global_ctrl);
+diff -ur xen-4.6.0-clean/xen/include/public/pmu.h xen-4.6.0-brendan/xen/include/public/pmu.h
+--- xen-4.6.0-clean/xen/include/public/pmu.h	2015-10-05 07:33:39.000000000 -0700
++++ xen-4.6.0-brendan/xen/include/public/pmu.h	2015-11-20 15:30:08.887781176 -0800
+@@ -84,9 +84,17 @@
+ 
+ /*
+  * PMU features:
+- * - XENPMU_FEATURE_INTEL_BTS: Intel BTS support (ignored on AMD)
++ * - XENPMU_FEATURE_INTEL_BTS:  Intel BTS support (ignored on AMD)
++ * - XENPMU_FEATURE_IPC_ONLY:   Restrict PMC to the most minimum set possible.
++ *                              Instructions, cycles, and ref cycles. Can be
++ *                              used to calculate instructions-per-cycle (IPC).
++ * - XENPMU_FEATURE_ARCH_ONLY:  Restrict PMCs to the Intel pre-defined 
++ *                              architecteral events exposed by cpuid and
++ *                              listed in Table 18-1 of the developer's manual.
+  */
+-#define XENPMU_FEATURE_INTEL_BTS  1
++#define XENPMU_FEATURE_INTEL_BTS  (1<<0)
++#define XENPMU_FEATURE_IPC_ONLY   (1<<1)
++#define XENPMU_FEATURE_ARCH_ONLY  (1<<2)
+ 
+ /*
+  * Shared PMU data between hypervisor and PV(H) domains.
