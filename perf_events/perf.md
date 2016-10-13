@@ -12,9 +12,9 @@ To use perf, first check that it is installed by trying to run "perf":
  usage: perf [--version] [--help] [OPTIONS] COMMAND [ARGS]
 
  The most commonly used perf commands are:
-   annotate        Read perf.data (created by perf record) and display annotated code
-   archive         Create archive with object files with build-ids found in perf.data file
-   bench           General framework for benchmark suites
+  annotate  Read perf.data (created by perf record) and display annotated code
+  archive   Create archive with object files with build-ids found in perf.data file
+  bench     General framework for benchmark suites
 [...]
 ```
 
@@ -30,7 +30,7 @@ Perf has four basic modes of operation:
 
 - counting: counting events in kernel context and printing a report (low overhead). Eg, "perf stat".
 - capture: recording events and writing to a perf.data file. Eg, "perf record".
-- reporting: reading a perf.data file and dumping or summarizing its contents. Eg, "perf report".
+- reporting: reading a perf.data file and dumping or summarizing it. Eg, "perf report".
 - live recording: recording and summarizing events live. Eg, "perf top".
 
 Whenever the perf.data file is in use, there is overhead to write this file, which is relative to the traced event rate. perf uses ring buffers and dynamic wakeups to lower this overhead.
@@ -58,7 +58,7 @@ perf record -F 99 -p PID -g -- sleep 10
 # Sample CPU stack traces for the entire system, at 99 Hertz, for 10 seconds:
 perf record -F 99 -ag -- sleep 10
 
-# Sample CPUs at 49 Hertz, and show top addresses and symbols, live (no perf.data file):
+# Sample CPUs at 49 Hertz, and show top addresses and symbols, live (no perf.data):
 perf top -F 49
 
 # Show perf.data in an ncurses browser (TUI) if possible:
@@ -149,7 +149,7 @@ perf record -e 'ext4:*' -o /tmp/perf.data -a
 Example dynamic tracing one-liners:
 
 ```
-# Add a tracepoint for the kernel tcp_sendmsg() function entry ("--add" is optional):
+# Add a tracepoint for the kernel tcp_sendmsg() function entry ("--add" optional):
 perf probe --add tcp_sendmsg
 
 # Remove the tcp_sendmsg() tracepoint (or use "--del"):
