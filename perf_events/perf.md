@@ -12,9 +12,9 @@ To use perf, first check that it is installed by trying to run "perf":
  usage: perf [--version] [--help] [OPTIONS] COMMAND [ARGS]
 
  The most commonly used perf commands are:
-  annotate  Read perf.data (created by perf record) and display annotated code
-  archive   Create archive with object files with build-ids found in perf.data file
-  bench     General framework for benchmark suites
+  annotate    Read perf.data (created by perf record) and display annotated code
+  archive     Create archive with object files with build-ids found in perf.data
+  bench       General framework for benchmark suites
 [...]
 ```
 
@@ -28,10 +28,10 @@ It should print a usage message like that above (truncated). On Ubuntu systems, 
 
 Perf has four basic modes of operation:
 
-- counting: counting events in kernel context and printing a report (low overhead). Eg, "perf stat".
-- capture: recording events and writing to a perf.data file. Eg, "perf record".
-- reporting: reading a perf.data file and dumping or summarizing it. Eg, "perf report".
-- live recording: recording and summarizing events live. Eg, "perf top".
+- **counting**: counting events in kernel context and printing a report (low overhead). Eg, "perf stat".
+- **capture**: recording events and writing to a perf.data file. Eg, "perf record".
+- **reporting**: reading a perf.data file and dumping or summarizing it. Eg, "perf report".
+- **live recording**: recording and summarizing events live. Eg, "perf top".
 
 Whenever the perf.data file is in use, there is overhead to write this file, which is relative to the traced event rate. perf uses ring buffers and dynamic wakeups to lower this overhead.
 
@@ -149,7 +149,7 @@ perf record -e 'ext4:*' -o /tmp/perf.data -a
 Example dynamic tracing one-liners:
 
 ```
-# Add a tracepoint for the kernel tcp_sendmsg() function entry ("--add" optional):
+# Add tracepoint for the kernel tcp_sendmsg() function entry ("--add" optional):
 perf probe --add tcp_sendmsg
 
 # Remove the tcp_sendmsg() tracepoint (or use "--del"):
@@ -158,7 +158,7 @@ perf probe -d tcp_sendmsg
 # Add a tracepoint for the kernel tcp_sendmsg() function return:
 perf probe 'tcp_sendmsg%return'
 
-# Add a tracepoint for tcp_sendmsg(), with size and socket state (needs debuginfo):
+# Add tracepoint for tcp_sendmsg() with size and socket state (needs debuginfo):
 perf probe 'tcp_sendmsg size sk->__sk_common.skc_state'
 
 # Add a tracepoint for the user-level malloc() function from libc:
