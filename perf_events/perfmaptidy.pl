@@ -34,6 +34,7 @@
 # 02-Dec-2014	Brendan Gregg	Created this.
 
 use strict;
+use Math::BigInt;
 
 my @table;		# map table
 
@@ -74,8 +75,10 @@ sub store {
 # load map file from STDIN
 my @symbols = <>;
 for (my $i = $#symbols; $i >= 0; $i--) {
-	my ($addr, $size, $symbol) = split ' ', $symbols[$i];
-	store(hex($addr), hex($size), $symbol);
+	chomp $symbols[$i];
+	my ($addr, $size, $symbol) = split ' ', $symbols[$i], 3;
+	# use BigInt to disable to non-portable warnings
+	store(Math::BigInt->new("0x" . $addr), hex($size), $symbol);
 }
 
 # emit map file on STDOUT
