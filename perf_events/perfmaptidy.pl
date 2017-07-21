@@ -11,7 +11,9 @@
 #
 # For this to work, you would want your JIT agent to write to a different
 # file than usual (eg, ".livemap"), so that perfmaptidy.pl can turn it into
-# the ".map" file that perf expects.
+# the ".map" file that perf expects. Or, you can use mv to rename the live .map
+# file to be a .livemap file, and then recreate the .map file using
+# perfmaptidy.pl (the new .livemap file should continue being written to).
 #
 # Copyright 2014 Brendan Gregg.  All rights reserved.
 #
