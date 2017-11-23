@@ -2,6 +2,8 @@
 #
 # microbench_ubuntu.sh		Initialize and run instance micro-benchmarks.
 #
+# USAGE: ./microbench_ubuntu.sh		# creates an out.microbench.$$ report
+#
 # 31-Mar-2014	Brendan Gregg	Created this.
 # 23-Oct-2017	   "      "	Added several more micro-benchmarks.
 
@@ -143,7 +145,7 @@ run M3 numactl --membind=0 --physcpubind=0 /usr/lib/lmbench/bin/x86_64-linux-gnu
 run M4 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 250m cp
 
 # different memory micro-benchmark:
-run M4 sysbench --test=memory --num-threads=$ncpu run
+run M5 sysbench --test=memory --num-threads=$ncpu run
 
 # file system writes, ending with an fsync to flush:
 run F1 fio --name=seqwrite --rw=write --filename=fio.data --bs=128k --size=4g --end_fsync=1 --loops=4
