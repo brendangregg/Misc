@@ -2,13 +2,13 @@
 #
 # buildkernel_ec2xenial.sh   linux kernel build on ubuntu-xenial/EC2.
 #
-# USAGE: buildkernel_ec2xenial.sh [-N] {tarball.xz | tarball.xz_URL} [patches_dir]
+# USAGE: buildkernel_ec2xenial.sh [-D] {tarball.xz | tarball.xz_URL} [patches_dir]
 #
-#		-N	# non-debuginfo
+#		-D	# debuginfo
 #
 # eg,
 #     ./buildkernel_ec2xenial.sh ../kernels/linux-3.13.tar.gz
-#     ./buildkernel_ec2xenial.sh -N ../kernels/linux-3.13.tar.gz
+#     ./buildkernel_ec2xenial.sh -D ../kernels/linux-3.13.tar.gz
 #     ./buildkernel_ec2xenial.sh ../kernels/linux-3.13-patched.tar.gz
 #     ./buildkernel_ec2xenial.sh ../kernels/linux-4.2.tar.gz mypatches01
 #     ./buildkernel_ec2xenial.sh https://www.kernel.org/pub/linux/kernel/v4.x/testing/linux-4.2-rc5.tar.xz
@@ -25,16 +25,16 @@
 
 ### usage
 function usage {
-	echo "USAGE: $0 [-N] {tarball.xz | tarball.xz_URL} [patches_dir]"
+	echo "USAGE: $0 [-D] {tarball.xz | tarball.xz_URL} [patches_dir]"
 	exit
 }
 
 ### process options
-opt_debuginfo=1
-while getopts N opt
+opt_debuginfo=0
+while getopts D opt
 do
 	case $opt in
-	N)	opt_debuginfo=0 ;;
+	D)	opt_debuginfo=1 ;;
 	h|?)	usage ;;
 	esac
 done

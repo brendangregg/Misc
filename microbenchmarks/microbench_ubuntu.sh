@@ -4,6 +4,8 @@
 #
 # USAGE: ./microbench_ubuntu.sh		# creates an out.microbench.$$ report
 #
+# Tests have been configured to usually run for between 10 and 30 seconds.
+#
 # 31-Mar-2014	Brendan Gregg	Created this.
 # 23-Oct-2017	   "      "	Added several more micro-benchmarks.
 
@@ -46,7 +48,11 @@ function addpkgs {
 ### determine instance paramaters
 memory=$(awk '$1 == "MemTotal:" { printf "%d\n", $2 / 1024 }' /proc/meminfo)
 ncpu=$(grep -c '^processor	' /proc/cpuinfo)
-mntdev=$(awk '$2 == "/mnt" { print $1; exit }' /etc/fstab)
+mntdev=$(awk '$2 == "/mnt" { print $1; exit }' /etc/mtab)
+if [[ "$mntdev" == "" ]]; then
+	echo "no /mnt device; defaulting to /." | tee -a $LOGFILE
+	mntdev=$(awk '$2 == "/" { print $1; exit }' /etc/mtab)
+fi
 
 ### print and log hardware
 echo Logfile: $LOGFILE
@@ -57,6 +63,12 @@ echo CPU:
 awk '{ print } NF == 0 { exit }' /proc/cpuinfo
 echo NUMASTAT:
 numastat
+echo DF:
+df -h
+echo FSTAB:
+cat /etc/fstab
+echo MTAB:
+cat /etc/mtab
 echo /mnt DEV: $mntdev
 ) | tee -a $LOGFILE
 sleep 0.5
@@ -74,7 +86,7 @@ customenv=/etc/profile.d/netflix_environment.sh
 
 ### add software
 echo Adding packages...
-addpkgs numactl lmbench sysbench fio hdparm iperf sharutils openssl p7zip-full
+addpkgs numactl lmbench sysbench fio hdparm iperf sharutils openssl
 
 sudo mkdir -p $DATADIR
 [[ "$USER" == "" ]] && die "ERROR: Username not found (\$USER?)"
@@ -91,7 +103,6 @@ echo governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)
 echo sysbench: "$(sysbench --version)"
 echo perl: "$(perl --version)"
 echo openssl: "$(openssl version)"
-echo 7za: "$(7za version)"
 ) | tee -a $LOGFILE
 
 ### run benchmarks
@@ -99,6 +110,11 @@ echo Running benchmarks...
 # some are repeated to check for variance
 
 # clock speed:
+run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
+run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
+run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
+run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
+run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
 run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
 run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
 run C1 /usr/lib/lmbench/bin/x86_64-linux-gnu/mhz
@@ -119,42 +135,48 @@ run C3 numactl --physcpubind=0 sysbench --max-requests=10000000 --max-time=10 --
 run C4 sysbench --max-requests=10000000 --max-time=10 --num-threads=$ncpu --test=cpu --cpu-max-prime=10000 run
 
 # CPU performance, different workload (more to sanity check earlier results):
-run C5 openssl speed rsa4096 -multi $ncpu
-
-# CPU performance, different workload (more to sanity check earlier results):
-run C6 7za b
+run C5 openssl speed rsa4096 -multi $ncpu 2>&1 | egrep -v '^(Forked|\+)'
 
 # system call performance:
-run S1 dd if=/dev/zero of=/dev/null bs=1 count=10000000
+run S1 dd if=/dev/zero of=/dev/null bs=1 count=100000000
+run S1 dd if=/dev/zero of=/dev/null bs=1 count=100000000
+run S1 dd if=/dev/zero of=/dev/null bs=1 count=100000000
+
+# system call performance, CPU and memory node bound:
+run S2 numactl --membind=0 --physcpubind=0 dd if=/dev/zero of=/dev/null bs=1 count=100000000
 
 # TSC performance:
-run S2 perl -e 'use Time::HiRes; for (;$i++ < 10_000_000;) { Time::HiRes::gettimeofday(); }'
+run S3 perl -e 'use Time::HiRes; for (;$i++ < 100_000_000;) { Time::HiRes::gettimeofday(); }'
+run S3 perl -e 'use Time::HiRes; for (;$i++ < 100_000_000;) { Time::HiRes::gettimeofday(); }'
+run S3 perl -e 'use Time::HiRes; for (;$i++ < 100_000_000;) { Time::HiRes::gettimeofday(); }'
 
 # memory access latency across ranges, exposing CPU cache and memory subsystem hierarchy:
 run M1 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 256m 128
 run M1 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 256m 128
 run M1 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 256m 128
 
-# memory access latency with a different stride:
-run M2 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 1024m 1024
-
 # memory access latency, CPU and memory node bound:
-run M3 numactl --membind=0 --physcpubind=0 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 1024m 1024
+run M2 numactl --membind=0 --physcpubind=0 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd 256m 128
+
+# memory access latency for a larger range (1/8th; larger is too slow with lat_mem_rd):
+run M3 /usr/lib/lmbench/bin/x86_64-linux-gnu/lat_mem_rd $(( memory * 1 / 8 ))m 128
 
 # memory bandwidth:
-run M4 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 250m cp
+run M4 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 2500m cp
+run M4 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 2500m cp
+run M4 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 2500m cp
 
-# different memory micro-benchmark:
-run M5 sysbench --test=memory --num-threads=$ncpu run
+# memory bandwidth, CPU and memory node bound:
+run M5 numactl --membind=0 --physcpubind=0 /usr/lib/lmbench/bin/x86_64-linux-gnu/bw_mem 2500m cp
 
 # file system writes, ending with an fsync to flush:
 run F1 fio --name=seqwrite --rw=write --filename=fio.data --bs=128k --size=4g --end_fsync=1 --loops=4
 
 # file system random reads, cached:
-run F2 fio --name=randread --rw=randread --pre_read=1 --norandommap --bs=4k --size=256m --runtime=30 --loops=1000
+run F2 fio --name=randread --rw=randread --pre_read=1 --norandommap --bs=4k --size=256m --runtime=30 --loops=1000000
 
 # file system multi-threaded random reads, cached:
-run F3 fio --numjobs=$ncpu --name=randread --rw=randread --pre_read=1 --norandommap --bs=4k --size=$((256 / ncpu))m --runtime=30 --loops=1000
+run F3 fio --numjobs=$ncpu --name=randread --rw=randread --pre_read=1 --norandommap --bs=4k --size=$((256 / ncpu))m --runtime=30 --loops=1000000
 
 # file system multi-threaded random reads, partial cache:
 run F4 bash -c 'echo 3 > /proc/sys/vm/drop_caches; fio --numjobs='$ncpu' --name=partial --rw=randread --filename=fio.data --norandommap --random_distribution=pareto:0.9 --bs=4k --size=4g --runtime=60 --loops=1000'
