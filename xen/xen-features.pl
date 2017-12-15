@@ -36,3 +36,6 @@ __DATA__
 #define XENFEAT_hvm_safe_pvclock           9
 #define XENFEAT_hvm_pirqs           10
 #define XENFEAT_dom0                      11
+#define XENFEAT_grant_map_identity        12
+#define XENFEAT_memory_op_vnode_supported 13
+#define XENFEAT_ARM_SMCCC_supported       14
